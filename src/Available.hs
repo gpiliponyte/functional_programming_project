@@ -11,6 +11,9 @@
         prev :: Maybe Message
     } deriving (Show)
 
+    startGame :: String -> String -> IO()
+    startGame str1 str2 = putStrLn str2
+
     emptyMessage = Message {coord = ("0", "0"), result = Nothing, prev = Nothing}
 
     -- PAGRINDINE FUNKCIJA

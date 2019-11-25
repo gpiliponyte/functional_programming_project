@@ -30,7 +30,7 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/Users/gretapiliponyte/.cabal/bin"
-libdir     = "/Users/gretapiliponyte/.cabal/lib/x86_64-osx-ghc-8.6.5/Battleship-0.1.0.0-inplace-Battleship"
+libdir     = "/Users/gretapiliponyte/.cabal/lib/x86_64-osx-ghc-8.6.5/Battleship-0.1.0.0-inplace-battleship"
 dynlibdir  = "/Users/gretapiliponyte/.cabal/lib/x86_64-osx-ghc-8.6.5"
 datadir    = "/Users/gretapiliponyte/.cabal/share/x86_64-osx-ghc-8.6.5/Battleship-0.1.0.0"
 libexecdir = "/Users/gretapiliponyte/.cabal/libexec/x86_64-osx-ghc-8.6.5/Battleship-0.1.0.0"
