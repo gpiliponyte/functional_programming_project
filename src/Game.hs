@@ -17,6 +17,31 @@ module Game where
 
     baseUrl = "http://battleship.haskell.lt/game/"
 
+    formatStringAfterGet :: String -> String
+    formatStringAfterGet history= 
+        case parseStringToMessage history of
+            Right gameMessage -> "l6:result" ++ (getResultString myBoard history)  ++"4:prev" ++ history ++ "e"
+            Left e -> ""
+
+    formatStringBeforePost :: String -> (String, String) -> String
+    formatStringBeforePost "" (x, y) = "l5:coordl" ++ (show (length x)) ++ ":" ++ x ++ (show (length y)) ++ ":" ++ y ++ "ee" 
+    formatStringBeforePost history (x, y) = 
+        case parseStringToMessage history of
+            Right gameMessage -> "l5:coordl" ++ (show (length x)) ++ ":" ++ x ++ (show (length y)) ++ ":" ++ y ++ "e" ++ firstLast history ++ "e"
+            Left e -> ""
+
+
+    getResultString :: [[CellStatus]] -> String -> String
+    getResultString board history = 
+        case parseStringToMessage history of
+            Right message -> show resultLength ++ ":" ++ result
+                where 
+                    (x, y) = (stringCoordToNumbers (coord message))
+                    cellValue = board!!x!!y
+                    result = getResult cellValue
+                    resultLength = length result
+            Left e -> "4:MISS"
+
 
     startGame :: String -> String -> IO()
     startGame gameId gameVariant = do
@@ -26,17 +51,15 @@ module Game where
                 playGame gameId opponentsBoard "" manager "A"
             "B" -> do
                 history <- (getMoves manager gameId "B")
-                let updatedHistory = firstLast history
-                -- case parseStringToMessage updatedHistory of
-                --     Right gameMessage -> of
-                --         let updatedGameMessage = getMessageWithResult gameMessage myBoard
-                --         case isGameOver updatedGameMessage of
-                --             Right True -> putStrLn ("Game completed Successfully")
-                --             Right False -> playGame gameId (getNewBoard opGrid 1 [] (stringCoordToNumbers (coord gameMessage))) updatedHistory manager var
-                --             Left e -> putStrLn e
-                --     Left e -> putStrLn e
-
-                playGame gameId opponentsBoard updatedHistory manager "B"
+                let updatedUpdatedHistory = formatStringAfterGet (firstLast history)
+                case parseStringToMessage updatedUpdatedHistory of
+                    Right gameMessage -> 
+                        case isGameOver gameMessage of
+                            Right True -> putStrLn "Game completed Successfully"
+                            Right False -> 
+                                playGame gameId (getNewBoard opponentsBoard 1 [] (stringCoordToNumbers (coord gameMessage))) updatedUpdatedHistory manager "B"
+                            Left e -> putStrLn e
+                    Left e -> putStrLn e
 
     getNewBoard:: [[CellStatus]] ->  Int -> [[CellStatus]] -> (Int, Int) -> [[CellStatus]]
     getNewBoard [xs] 10 cell (10, y) = cell ++ [getNewBoard' xs 1 [] y ]
@@ -63,27 +86,31 @@ module Game where
     getUpdatedString :: [[CellStatus]] -> String -> String
     getUpdatedString board history = 
         case parseStringToMessage history of
-            Right message -> ((take (length history -1 ) history) ++ "6:result3:HITe")
-                -- where 
-                --     coords = coord message 
+            Right message -> ((take (length history -1 ) history) ++ "6:result" ++ show resultLength ++ ":" ++ result ++"e")
+                where 
+                    (x, y) = (stringCoordToNumbers (coord message))
+                    cellValue = board!!x!!y
+                    result = getResult cellValue
+                    resultLength = length result
             Left e -> "Something went wrong"
 
-    getResult :: [[CellStatus]] -> (String, String) -> Result
-    getResult _ _ = Hit
+    getResult :: CellStatus -> String
+    getResult cell = if cell == N
+        then "MISS"
+        else "HIT"
 
 
     playGame :: String -> [[CellStatus]] -> String -> Manager -> String -> IO()
     playGame gameId opGrid history manager var = do
         case getAMove opGrid of 
             Right nextMove -> do
-                let strToSend = getStrToSend nextMove history;  -- gaunu ka siusiu
+                putStrLn (show nextMove)
+                let strToSend = formatStringBeforePost history nextMove
+
                 postMoves manager gameId strToSend var; -- siunciu
                 receivedHistory <- (getMoves manager gameId var); -- gaunu atsakyma
                 let updatedHistory = firstLast receivedHistory -- apdoroju atsakyma IR TURECIAU PARASYT, AR HIT ANAS MOVE
-                -- prideti status ar HIT
-                putStrLn updatedHistory
-                let updatedUpdatedHistory = getUpdatedString myBoard updatedHistory
-                putStrLn updatedUpdatedHistory
+                let updatedUpdatedHistory = formatStringAfterGet updatedHistory--getUpdatedString myBoard updatedHistory
                 case parseStringToMessage updatedUpdatedHistory of
                     Right gameMessage -> 
                         case isGameOver gameMessage of
@@ -98,13 +125,14 @@ module Game where
     getMoves :: Manager -> String -> String -> IO(String)
     getMoves manager gameId var = do
         getRequestUrl <- parseUrl $ baseUrl ++ gameId ++ "/player/" ++ var 
+        putStrLn (show getRequestUrl)
         let request = getRequestUrl {
             method = stringToBS $ "GET"
         , requestHeaders = [(makeCaseInsensitive $ stringToBS $ "Accept", stringToBS $ "application/relaxed-bencoding+nomaps")] }
     
         response <- httpLbs request manager
         putStrLn "GET:"
-        putStrLn $ "The status code was: " ++ (show $ statusCode $ responseStatus response)
+        -- putStrLn $ "The status code was: " ++ (show $ statusCode $ responseStatus response)
         
         return $ show $ responseBody response
 
@@ -118,8 +146,8 @@ module Game where
         , requestHeaders = [(makeCaseInsensitive $ stringToBS $ "Content-Type", stringToBS $ "application/relaxed-bencoding+nomaps")] }
     
         response <- httpLbs request manager
-        Prelude.putStrLn "POST:"
-        Prelude.putStrLn $ "The status code was: " ++ (show $ statusCode $ responseStatus response)
+        Prelude.putStrLn "POST"
+        -- Prelude.putStrLn $ "The status code was: " ++ (show $ statusCode $ responseStatus response)
 
     strToWord8s :: String -> [Word8]
     strToWord8s = unpackBytes . pack

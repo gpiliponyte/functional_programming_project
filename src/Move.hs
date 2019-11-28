@@ -3,7 +3,7 @@ module Move where
 import Encode
 import Decode
 
-data CellStatus = N | HS | S | M | U deriving (Show)
+data CellStatus = N | HS | S | M | U deriving (Show, Eq)
 
 myBoard:: [[CellStatus]]
 myBoard = [[S, S, S, S, N, N, S, S, N, N],
