@@ -1,21 +1,6 @@
     module Available where
 
-    import Data.Char
-    import Data.List
-
-    data Result = Miss | Hit deriving (Show)
-
-    data Message = Message {
-        coord :: (String, String),
-        result :: Maybe Result,
-        prev :: Maybe Message
-    } deriving (Show)
-
-    startGame :: String -> String -> IO()
-    startGame str1 str2 = putStrLn str2
-
-    emptyMessage = Message {coord = ("0", "0"), result = Nothing, prev = Nothing}
-
+    import Decode
     -- PAGRINDINE FUNKCIJA
     available :: String -> Either String (Int, Int)
     available gameString = 
@@ -25,6 +10,14 @@
                 case validateForDuplicates gameMessage of 
                     Left validationErr -> Left validationErr
                     Right x -> getAvailableMoves gameMessage 100 20 100 20 True
+
+
+    isGameOver:: Message -> Either String Bool
+    isGameOver gameMessage =
+        case getAvailableMoves gameMessage 100 20 100 20 True of
+            Right (0, 0) -> Right True
+            Right (x, y) -> Right False
+            Left e -> Left e
 
     getAvailableMoves :: Message -> Int -> Int -> Int -> Int -> Bool -> Either String (Int, Int)
     getAvailableMoves message _ 0 _ _ _ = Right (0, 0)
@@ -43,69 +36,6 @@
     getAvailableMoves Message {prev = Nothing, coord = (x, y)} avMov1 _ avMov2 _ True = Right (avMov1 - 1, avMov2)
     getAvailableMoves Message {prev = Nothing, coord = (x, y)} avMov1 _ avMov2 _ False = Right (avMov1, avMov2 -1)
     getAvailableMoves _ _ _ _ _ _ = Left "Unexpected error while obtaining available moves"
-
-
-    ---- PARSING FUNCTIONS
-
-    parseString :: String -> Either String (String, String)
-    parseString msg = readStr lenght $ drop (length lenghtAsStr) msg
-        where
-            lenghtAsStr = takeWhile isDigit msg
-            lenght = read lenghtAsStr
-            readStr :: Int -> String -> Either String (String, String)
-            readStr n (':':m) = Right (take n m, drop n m)
-            readStr _ str = Left "Key could not be parsed"
-
-    parseStringToMessage :: String -> Either String Message
-    parseStringToMessage str =
-        case result of
-            Left errorMsg -> Left errorMsg
-            Right (message, "") -> Right message
-            _ -> Left "Game string must have only one element that is an array at the top level"
-        where
-            result = parseGame str
-
-
-    parseGame ('l' : gameString) = parseMove gameString emptyMessage
-        where
-            parseMove :: String -> Message -> Either String (Message, String)
-            parseMove ('e' : restOfGame) message = Right (message, restOfGame)
-            parseMove moveString message =
-                case parseString moveString of
-                    Left parseErr -> Left parseErr
-                    Right (key, rest) ->
-                        case parseByKey key rest message of
-                            Left parseKeyErr -> Left parseKeyErr
-                            Right (updatedMessage, restOfGameString) -> parseMove restOfGameString updatedMessage
-    parseGame _ = Left "Letter L expected in the beginning of a game element"
-
-    parseByKey :: String -> String -> Message -> Either String (Message, String)
-    parseByKey key str message =
-        case key of
-            "coord" -> 
-                case processCoordinates str of
-                    Left e -> Left e
-                    Right (coord1, coord2, rest) -> Right (message {coord = (coord1, coord2)}, rest)
-            "result" -> Right (message, str)
-            "prev" -> 
-                case parseGame str of
-                    Right (previousMessage, restStr) -> Right (message {prev = Just previousMessage}, restStr)
-                    Left e -> Left e
-            "HIT" -> Right (message {result = Just Hit}, str)
-            "MISS" -> Right (message {result = Just Miss}, str)
-            _ -> Left $ key ++ " is not a valid key"
-
-    processCoordinates :: String -> Either String (String, String, String)
-    processCoordinates ('l':'e':coordStr) = Right ("0", "0", coordStr)
-    processCoordinates ('l': coordStr) = 
-        case parseString coordStr of
-            Left e -> Left e
-            Right (coord1, rest1) -> 
-                case parseString rest1 of
-                    Left e -> Left e
-                    Right (coord2, 'e':rest2) -> Right (coord1, coord2, rest2)
-                    _ -> Left "coordinates must end with an e"
-    processCoordinates _ = Left "L was expected in coordinate beginning"
 
     -- VERIFY IF NO DUPLICATE MOVES
 
