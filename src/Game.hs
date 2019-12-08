@@ -9,6 +9,7 @@ module Game where
     import qualified Data.ByteString.Char8 as BS
     import qualified Data.CaseInsensitive as CI
     import GHC.Word (Word8)
+    import Control.Lens
 
     import Move
     import Decode
@@ -18,7 +19,7 @@ module Game where
     baseUrl = "http://battleship.haskell.lt/game/"
 
     formatStringAfterGet :: String -> String
-    formatStringAfterGet history= 
+    formatStringAfterGet history = 
         case parseStringToMessage history of
             Right gameMessage -> "l6:result" ++ (getResultString myBoard history)  ++"4:prev" ++ history ++ "e"
             Left e -> ""
@@ -37,7 +38,7 @@ module Game where
             Right message -> show resultLength ++ ":" ++ result
                 where 
                     (x, y) = (stringCoordToNumbers (coord message))
-                    cellValue = board!!x!!y
+                    cellValue = board!!(x - 1)!!(y - 1)
                     result = getResult cellValue
                     resultLength = length result
             Left e -> "4:MISS"
@@ -48,34 +49,19 @@ module Game where
         manager <- newManager defaultManagerSettings
         case gameVariant of 
             "A" -> 
-                playGame gameId opponentsBoard "" manager "A"
+                playGame gameId opponentsBoard "" manager "A" 1
             "B" -> do
                 history <- (getMoves manager gameId "B")
                 let updatedUpdatedHistory = formatStringAfterGet (firstLast history)
                 case parseStringToMessage updatedUpdatedHistory of
-                    Right gameMessage -> 
-                        case isGameOver gameMessage of
-                            Right True -> putStrLn "Game completed Successfully"
-                            Right False -> 
-                                playGame gameId (getNewBoard opponentsBoard 1 [] (stringCoordToNumbers (coord gameMessage))) updatedUpdatedHistory manager "B"
-                            Left e -> putStrLn e
+                    Right gameMessage -> playGame gameId opponentsBoard updatedUpdatedHistory manager "B" 1
                     Left e -> putStrLn e
 
-    getNewBoard:: [[CellStatus]] ->  Int -> [[CellStatus]] -> (Int, Int) -> [[CellStatus]]
-    getNewBoard [xs] 10 cell (10, y) = cell ++ [getNewBoard' xs 1 [] y ]
-    getNewBoard [xs] _ cell (x, y) = cell ++ [xs]
-    getNewBoard (xs: s) i cell (x, y) = 
-        if i == x
-            then getNewBoard s (x + 1) (cell ++ [getNewBoard' xs 1 [] y]) (x, y)
-            else getNewBoard s (i + 1) (cell ++ [xs]) (x, y)
+    getBoard :: [[CellStatus]] -> (Int, Int) -> [[CellStatus]]
+    getBoard board (x, y) = (take (x - 1) board) ++ [(getRow (board!!(x-1)) y)] ++ (drop x board)
 
-    getNewBoard':: [CellStatus] -> Int -> [CellStatus] -> Int -> [CellStatus]
-    getNewBoard' [xs] 10 cell 10 = cell ++ [M]
-    getNewBoard' [xs] _ cell _ = cell ++ [xs]
-    getNewBoard' (xs: s) i cell y = 
-        if i == y
-            then getNewBoard' s (y + 1) (cell ++ [M]) y
-            else getNewBoard' s (i + 1) (cell ++ [xs]) y
+    getRow :: [CellStatus] -> Int -> [CellStatus]
+    getRow row y = (take (y - 1) row) ++ [M] ++ (drop y row)
 
 
     getMessageWithResult:: Message -> [[CellStatus]] -> Message
@@ -89,7 +75,7 @@ module Game where
             Right message -> ((take (length history -1 ) history) ++ "6:result" ++ show resultLength ++ ":" ++ result ++"e")
                 where 
                     (x, y) = (stringCoordToNumbers (coord message))
-                    cellValue = board!!x!!y
+                    cellValue = board!!(x -1)!!(y - 1)
                     result = getResult cellValue
                     resultLength = length result
             Left e -> "Something went wrong"
@@ -100,32 +86,52 @@ module Game where
         else "HIT"
 
 
-    playGame :: String -> [[CellStatus]] -> String -> Manager -> String -> IO()
-    playGame gameId opGrid history manager var = do
+    playGame :: String -> [[CellStatus]] -> String -> Manager -> String -> Int -> IO()
+    playGame gameId opGrid history manager var i = do
         case getAMove opGrid of 
             Right nextMove -> do
-                putStrLn (show nextMove)
                 let strToSend = formatStringBeforePost history nextMove
-
+                let j = i + 1
+                putStrLn (show nextMove)
                 postMoves manager gameId strToSend var; -- siunciu
                 receivedHistory <- (getMoves manager gameId var); -- gaunu atsakyma
                 let updatedHistory = firstLast receivedHistory -- apdoroju atsakyma IR TURECIAU PARASYT, AR HIT ANAS MOVE
-                let updatedUpdatedHistory = formatStringAfterGet updatedHistory--getUpdatedString myBoard updatedHistory
-                case parseStringToMessage updatedUpdatedHistory of
-                    Right gameMessage -> 
-                        case isGameOver gameMessage of
-                            Right True -> putStrLn ("Game completed Successfully")
-                            Right False -> 
-                                playGame gameId (getNewBoard opGrid 1 [] (stringCoordToNumbers (coord gameMessage))) updatedUpdatedHistory manager var
-                            Left e -> putStrLn e
-                    Left e -> putStrLn e
+                case parseStringToMessage updatedHistory of
+                    Right receivedMsg ->
+                        case (coord receivedMsg) of
+                            ("0", "0") -> putStrLn ("Player " ++ show var ++ " won")
+                            _ -> do
+                                putStrLn (show (coord receivedMsg))
+                                let updatedUpdatedHistory = formatStringAfterGet updatedHistory --getUpdatedString myBoard updatedHistory
+                                case parseStringToMessage updatedUpdatedHistory of
+                                    Right gameMessage -> 
+                                        case isGameOver gameMessage of
+                                            Right True -> declareThatIlost gameId updatedUpdatedHistory var manager
+                                            Right False -> 
+                                                case (prev gameMessage) of
+                                                    Just msg -> 
+                                                        case (prev msg) of
+                                                            Just m -> --playGame gameId (getBoard opGrid (stringCoordToNumbers (coord m))) updatedUpdatedHistory manager var j
+                                                                case i of 
+                                                                -- _ -> putStrLn (show (coord m))
+                                                                _ -> playGame gameId (getBoard opGrid (stringCoordToNumbers (coord m))) updatedUpdatedHistory manager var j
+                                                            Nothing -> putStrLn "Something bad happened"
+                                                    Nothing -> putStrLn "Something bad happened"
+                                            Left e -> putStrLn e
+                                    Left e -> putStrLn e
+                    Left e -> putStrLn "somtehing went wrong"
             Left e -> putStrLn "Something went wrong when getting a move"
+
+    declareThatIlost :: String -> String -> String ->  Manager -> IO()
+    declareThatIlost gameId history var manager = do
+        let strToSend = "l5:coordle" ++ firstLast history ++ "e"
+        putStrLn ("Player " ++ (show (if var == "A" then "B" else "A")) ++ " won")
+        postMoves manager gameId strToSend var
 
 
     getMoves :: Manager -> String -> String -> IO(String)
     getMoves manager gameId var = do
         getRequestUrl <- parseUrl $ baseUrl ++ gameId ++ "/player/" ++ var 
-        putStrLn (show getRequestUrl)
         let request = getRequestUrl {
             method = stringToBS $ "GET"
         , requestHeaders = [(makeCaseInsensitive $ stringToBS $ "Accept", stringToBS $ "application/relaxed-bencoding+nomaps")] }
@@ -139,7 +145,6 @@ module Game where
     postMoves :: Manager -> String -> String -> String -> IO()
     postMoves manager gameId gameStr var = do
         postRequestUrl <- parseUrl $ baseUrl ++ gameId ++ "/player/" ++ var
-        putStrLn gameStr
         let request = postRequestUrl { 
             method = stringToBS $ "POST"
         , requestBody = RequestBodyLBS $ word8ToByteString $ strToWord8s $ gameStr
@@ -194,4 +199,30 @@ module Game where
     letterToNum "I" = 9
     letterToNum "J" = 10
     letterToNum _ = 0
+
+    -- numStrToNum:: String -> Int
+    -- numStrToNum "1" = 0
+    -- numStrToNum "2" = 1
+    -- numStrToNum "3" = 2
+    -- numStrToNum "4" = 3
+    -- numStrToNum "5" = 4
+    -- numStrToNum "6" = 5
+    -- numStrToNum "7" = 6
+    -- numStrToNum "8" = 7
+    -- numStrToNum "9" = 8
+    -- numStrToNum "10" = 9
+    -- numStrToNum _ = 0
+
+    -- letterToNum:: String -> Int
+    -- letterToNum "A" = 0
+    -- letterToNum "B" = 1
+    -- letterToNum "C" = 2
+    -- letterToNum "D" = 3
+    -- letterToNum "E" = 4
+    -- letterToNum "F" = 5
+    -- letterToNum "G" = 6
+    -- letterToNum "H" = 7
+    -- letterToNum "I" = 8
+    -- letterToNum "J" = 9
+    -- letterToNum _ = 0
 

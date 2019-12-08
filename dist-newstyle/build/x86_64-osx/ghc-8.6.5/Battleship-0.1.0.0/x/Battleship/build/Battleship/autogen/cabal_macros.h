@@ -66,6 +66,17 @@
   (major1) == 0 && (major2) == 12 && (minor) <= 3)
 #endif /* MIN_VERSION_http_types */
 
+/* package lens-4.18.1 */
+#ifndef VERSION_lens
+#define VERSION_lens "4.18.1"
+#endif /* VERSION_lens */
+#ifndef MIN_VERSION_lens
+#define MIN_VERSION_lens(major1,major2,minor) (\
+  (major1) <  4 || \
+  (major1) == 4 && (major2) <  18 || \
+  (major1) == 4 && (major2) == 18 && (minor) <= 1)
+#endif /* MIN_VERSION_lens */
+
 /* tool gcc-4.2.1 */
 #ifndef TOOL_VERSION_gcc
 #define TOOL_VERSION_gcc "4.2.1"

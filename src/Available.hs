@@ -1,4 +1,4 @@
-    module Available where
+module Available where
 
     import Decode
     -- PAGRINDINE FUNKCIJA
@@ -15,13 +15,22 @@
     isGameOver:: Message -> Either String Bool
     isGameOver gameMessage =
         case getAvailableMoves gameMessage 100 20 100 20 True of
-            Right (0, 0) -> Right True
+            Right (x, 0) -> Right True
+            Right (0, y) -> Right True
             Right (x, y) -> Right False
             Left e -> Left e
 
+    whoWonTheGame:: Message -> Either String String
+    whoWonTheGame gameMessage =
+        case getAvailableMoves gameMessage 100 20 100 20 True of
+            Right (0, _) -> Right "A"
+            Right (_, 0) -> Right "B"
+            Right (_, _) -> Left "Something went wrong"
+            Left e -> Left e
+
     getAvailableMoves :: Message -> Int -> Int -> Int -> Int -> Bool -> Either String (Int, Int)
-    getAvailableMoves message _ 0 _ _ _ = Right (0, 0)
-    getAvailableMoves message _ _ _ 0 _ = Right (0, 0)
+    getAvailableMoves message _ 0 _ avHits2 _ = Right (0, avHits2)
+    getAvailableMoves message _ avHits1 _ 0 _ = Right (avHits1, 0)
     getAvailableMoves Message {prev = Just previousMessage, result = Just Hit} avMov1 avHits1 avMov2 avHits2 True =
         getAvailableMoves previousMessage (avMov1 - 1) (avHits1 - 1) avMov2 avHits2 False
     getAvailableMoves Message {prev = Just previousMessage, result = Just Hit} avMov1 avHits1 avMov2 avHits2 False =
@@ -35,7 +44,7 @@
     getAvailableMoves Message {prev = Nothing, coord = ("0", "0")} avMov1 _ avMov2 _ _ = Right (avMov1, avMov2)
     getAvailableMoves Message {prev = Nothing, coord = (x, y)} avMov1 _ avMov2 _ True = Right (avMov1 - 1, avMov2)
     getAvailableMoves Message {prev = Nothing, coord = (x, y)} avMov1 _ avMov2 _ False = Right (avMov1, avMov2 -1)
-    getAvailableMoves _ _ _ _ _ _ = Left "Unexpected error while obtaining available moves"
+    -- getAvailableMoves _ _ _ _ _ _ = Left "Unexpected error while obtaining available moves"
 
     -- VERIFY IF NO DUPLICATE MOVES
 
@@ -58,7 +67,7 @@
         if length coordArr1 > length coordArr2 then Right (coordArr1, coordArr2 ++ [(x, y)]) else Right (coordArr1 ++ [(x, y)], coordArr2)
     getPlayersCoordinates Message {coord = (x, y), prev = Just prevMessage} coordArr1 coordArr2 = 
         if length coordArr1 > length coordArr2 then getPlayersCoordinates prevMessage coordArr1 (coordArr2 ++ [(x, y)]) else getPlayersCoordinates prevMessage (coordArr1 ++ [(x, y)]) coordArr2
-    getPlayersCoordinates _ _ _ = Left "Error while obtaining players coordinates"
+    --getPlayersCoordinates _ _ _ = Left "Error while obtaining players coordinates"
 
     checkForDuplicates :: [(String, String)] -> Either String Bool
     checkForDuplicates [] = Right True
