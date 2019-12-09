@@ -101,7 +101,6 @@ module Game where
                         case (coord receivedMsg) of
                             ("0", "0") -> putStrLn ("Player " ++ show var ++ " won")
                             _ -> do
-                                putStrLn (show (coord receivedMsg))
                                 let updatedUpdatedHistory = formatStringAfterGet updatedHistory --getUpdatedString myBoard updatedHistory
                                 case parseStringToMessage updatedUpdatedHistory of
                                     Right gameMessage -> 
@@ -131,7 +130,7 @@ module Game where
 
     getMoves :: Manager -> String -> String -> IO(String)
     getMoves manager gameId var = do
-        getRequestUrl <- parseUrl $ baseUrl ++ gameId ++ "/player/" ++ var 
+        getRequestUrl <- parseUrlThrow $ baseUrl ++ gameId ++ "/player/" ++ var 
         let request = getRequestUrl {
             method = stringToBS $ "GET"
         , requestHeaders = [(makeCaseInsensitive $ stringToBS $ "Accept", stringToBS $ "application/relaxed-bencoding+nomaps")] }
@@ -144,7 +143,7 @@ module Game where
 
     postMoves :: Manager -> String -> String -> String -> IO()
     postMoves manager gameId gameStr var = do
-        postRequestUrl <- parseUrl $ baseUrl ++ gameId ++ "/player/" ++ var
+        postRequestUrl <- parseUrlThrow $ baseUrl ++ gameId ++ "/player/" ++ var
         let request = postRequestUrl { 
             method = stringToBS $ "POST"
         , requestBody = RequestBodyLBS $ word8ToByteString $ strToWord8s $ gameStr
@@ -199,30 +198,4 @@ module Game where
     letterToNum "I" = 9
     letterToNum "J" = 10
     letterToNum _ = 0
-
-    -- numStrToNum:: String -> Int
-    -- numStrToNum "1" = 0
-    -- numStrToNum "2" = 1
-    -- numStrToNum "3" = 2
-    -- numStrToNum "4" = 3
-    -- numStrToNum "5" = 4
-    -- numStrToNum "6" = 5
-    -- numStrToNum "7" = 6
-    -- numStrToNum "8" = 7
-    -- numStrToNum "9" = 8
-    -- numStrToNum "10" = 9
-    -- numStrToNum _ = 0
-
-    -- letterToNum:: String -> Int
-    -- letterToNum "A" = 0
-    -- letterToNum "B" = 1
-    -- letterToNum "C" = 2
-    -- letterToNum "D" = 3
-    -- letterToNum "E" = 4
-    -- letterToNum "F" = 5
-    -- letterToNum "G" = 6
-    -- letterToNum "H" = 7
-    -- letterToNum "I" = 8
-    -- letterToNum "J" = 9
-    -- letterToNum _ = 0
 
